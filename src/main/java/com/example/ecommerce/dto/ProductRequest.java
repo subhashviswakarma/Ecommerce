@@ -8,5 +8,7 @@ public class ProductRequest {
     private String description;
     private Double price;
     private String imageUrl;
-    private Integer stock;
+    private Long stock;
+    private Long categoryId;
+
 }

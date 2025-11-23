@@ -2,7 +2,9 @@ package com.example.ecommerce.service.impl;
 
 import com.example.ecommerce.dto.ProductRequest;
 import com.example.ecommerce.dto.ProductResponse;
+import com.example.ecommerce.model.Category;
 import com.example.ecommerce.model.Product;
+import com.example.ecommerce.repository.CategoryRepository;
 import com.example.ecommerce.repository.ProductRepository;
 import com.example.ecommerce.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository repo;
+    private final CategoryRepository categoryRepo;
 
     private ProductResponse mapToResponse(Product product) {
         return ProductResponse.builder()
@@ -25,17 +28,24 @@ public class ProductServiceImpl implements ProductService {
                 .price(product.getPrice())
                 .imageUrl(product.getImageUrl())
                 .stock(product.getStock())
+                .categoryId(product.getCategory().getId())
+                .categoryName(product.getCategory().getName())
                 .build();
     }
 
     @Override
     public ProductResponse create(ProductRequest request) {
+
+        Category category = categoryRepo.findById(request.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+
         Product product = Product.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .price(request.getPrice())
                 .imageUrl(request.getImageUrl())
                 .stock(request.getStock())
+                .category(category)
                 .build();
 
         return mapToResponse(repo.save(product));
@@ -43,14 +53,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse update(Long id, ProductRequest request) {
+
         Product product = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        Category category = categoryRepo.findById(request.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Category not found"));
 
         product.setName(request.getName());
         product.setDescription(request.getDescription());
         product.setPrice(request.getPrice());
         product.setImageUrl(request.getImageUrl());
         product.setStock(request.getStock());
+        product.setCategory(category);
 
         return mapToResponse(repo.save(product));
     }
@@ -64,7 +79,6 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse getById(Long id) {
         Product product = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
-
         return mapToResponse(product);
     }
 

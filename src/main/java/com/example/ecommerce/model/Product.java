@@ -25,5 +25,15 @@ public class Product {
 
     private String imageUrl;
 
-    private Integer stock;
+    @Column(nullable = false)
+    private Long stock;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
+
+    // IMPORTANT: prevents overselling in high concurrency
+    @Version
+    @Column(nullable = false)
+    private Long version = 0L;
 }
