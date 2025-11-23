@@ -1,7 +1,5 @@
 package com.example.ecommerce.aop;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -11,77 +9,85 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Aspect
 @Component
-@RequiredArgsConstructor
 public class LoggingAspect {
 
-    private final ObjectMapper mapper;
+    /**
+     * Pointcut: log all service layer methods
+     */
+    @Pointcut("execution(* com.example.ecommerce.service..*(..))")
+    public void serviceMethods() {}
 
     /**
-     * Pointcut for all controller methods
+     * Log before service method execution
      */
-    @Pointcut("within(@org.springframework.web.bind.annotation.RestController *)")
-    public void controllerLayer() {}
-
-    /**
-     * Pointcut for all service methods
-     */
-    @Pointcut("within(@org.springframework.stereotype.Service *)")
-    public void serviceLayer() {}
-
-    /**
-     * Log controller method entry
-     */
-    @Before("controllerLayer()")
-    public void logControllerInput(JoinPoint joinPoint) {
-        try {
-            Object[] args = joinPoint.getArgs();
-            log.info("[API CALL] {} -> args = {}",
-                    joinPoint.getSignature(),
-                    mapper.writeValueAsString(args));
-        } catch (Exception e) {
-            log.warn("[API CALL] Failed to log input for {}", joinPoint.getSignature());
-        }
+    @Before("serviceMethods()")
+    public void logBefore(JoinPoint joinPoint) {
+        log.info("[SERVICE CALL] {} -> args={}",
+                joinPoint.getSignature().toShortString(),
+                sanitize(joinPoint.getArgs()));
     }
 
     /**
-     * Log controller responses
+     * Log after successful service execution
      */
-    @AfterReturning(value = "controllerLayer()", returning = "result")
-    public void logControllerOutput(JoinPoint joinPoint, Object result) {
-        try {
-            log.info("[API RESPONSE] {} -> result = {}",
-                    joinPoint.getSignature(),
-                    mapper.writeValueAsString(result));
-        } catch (Exception e) {
-            log.warn("[API RESPONSE] Failed to log output for {}", joinPoint.getSignature());
-        }
+    @AfterReturning(value = "serviceMethods()", returning = "result")
+    public void logAfterReturn(JoinPoint joinPoint, Object result) {
+        log.info("[SERVICE SUCCESS] {} -> return={}",
+                joinPoint.getSignature().toShortString(),
+                sanitize(result));
     }
 
     /**
-     * Measure execution time of all service methods
+     * Capture and log execution time
      */
-    @Around("serviceLayer()")
+    @Around("serviceMethods()")
     public Object logExecutionTime(ProceedingJoinPoint pjp) throws Throwable {
-
         long start = System.currentTimeMillis();
-        Object result = pjp.proceed();
-        long duration = System.currentTimeMillis() - start;
 
-        log.info("[SERVICE] {} executed in {} ms",
-                pjp.getSignature(),
-                duration);
+        Object result = pjp.proceed();
+
+        long time = System.currentTimeMillis() - start;
+
+        log.info("[EXECUTION TIME] {} -> {} ms",
+                pjp.getSignature().toShortString(),
+                time);
 
         return result;
     }
 
     /**
-     * Log exceptions thrown by any service method
+     * Log exceptions thrown in service layer
      */
-    @AfterThrowing(value = "serviceLayer()", throwing = "ex")
-    public void logServiceException(JoinPoint joinPoint, Throwable ex) {
+    @AfterThrowing(value = "serviceMethods()", throwing = "ex")
+    public void logException(JoinPoint joinPoint, Throwable ex) {
         log.error("[SERVICE ERROR] {} -> {}",
-                joinPoint.getSignature(),
-                ex.getMessage(),
-                ex);
+                joinPoint.getSignature().toShortString(),
+                ex.getMessage(), ex);
+    }
+
+
+    /**
+     * Removes sensitive data (passwords) from logs
+     */
+    private Object sanitize(Object value) {
+        if (value == null) return null;
+
+        // Avoid logging passwords in DTOs
+        String str = value.toString().toLowerCase();
+
+        if (str.contains("password")) {
+            return "[HIDDEN]";
+        }
+        return value;
+    }
+
+    private Object sanitize(Object[] args) {
+        if (args == null) return null;
+
+        Object[] cleanArgs = new Object[args.length];
+        for (int i = 0; i < args.length; i++) {
+            cleanArgs[i] = sanitize(args[i]);
+        }
+        return cleanArgs;
     }
 }

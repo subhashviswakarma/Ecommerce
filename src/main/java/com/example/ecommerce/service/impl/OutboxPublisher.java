@@ -17,7 +17,7 @@ public class OutboxPublisher {
     private final OutboxRepository outboxRepo;
 
     // every 5 seconds (adjust in production)
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelay = 10000000)
     public void publishPending() {
         List<OutboxEvent> pending = outboxRepo.findByStatusOrderByCreatedAtAsc("PENDING");
         for (OutboxEvent ev : pending) {
